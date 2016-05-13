@@ -1,0 +1,91 @@
+<head>
+    <title>Timer</title>
+    <meta charset="utf-8">
+    <link href="../base1/cockpit.css" type="text/css" rel="stylesheet">
+    <script src="../base1/patterns.js"></script>
+    <script src="../base1/cockpit.js"></script>
+    <script src="../base1/jquery.js"></script>
+    <script src="../base1/mustache.js"></script>
+    <link rel="stylesheet" type="text/css" href="../base1/patternfly.css">
+    <link rel="stylesheet" type="text/css" href="../base1/patternfly-additions.css">
+</head>
+<div class="dropdown" id="service-select">
+  <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown">
+    Dropdown
+    <span class="caret"></span>
+  </button>
+  <ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Action</a></li>
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Another action</a></li>
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Something else here</a></li>
+    <li role="presentation" class="divider"></li>
+    <li role="presentation" class="disabled"><a role="menuitem" tabindex="-1" href="#">Disabled link</a></li>
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Separated link</a></li>
+  </ul>
+</div>
+<div id="target">Loading...</div>
+<script id="services-units-tmpl" type="x-template/mustache">
+  <tr>
+<div class="panel panel-default">
+      <div class="panel-heading">Timers</div>
+      <table class="table table-hover">
+        <tr data-goto-unit="{{Id}}">
+          <td class="service-unit-description">{{Description}}</td>
+          <td>{{Id}}</td>
+          <td class="service-unit-data {{#HasFailed}}service-unit-failed{{/HasFailed}}">
+            {{CombinedState}}
+          </td>
+        </tr>
+      </table>
+</div>
+</tr>  
+</script>
+
+
+<script type="text/javascript">
+function wait_valid(proxy, callback) {
+  proxy.wait(function() {
+  if (proxy.valid)
+    callback(proxy);
+  });
+};
+// var units_template = $("#services-units-tmpl").html();
+// mustache.parse(units_template);
+
+// function fill_table(parent, heading, units) {
+//   var text = mustache.render(units_template, {
+//     heading: heading,
+//     units: units
+//   });
+//   parent.html(text);
+// }
+
+operation = function (systemd_manager){
+
+  function failure (error){
+    console.log(error);
+  };
+
+  function r (result){
+    var substring = "timer";
+    for (var i = result.length - 1; i >= 0; i--) {
+      if ( result[i][0].indexOf(substring) > -1 )
+      console.log(result[i][0]); 
+    };
+
+  };
+
+  systemd_manager.ListUnitFiles().
+  fail(failure).
+  done(r);
+
+};
+
+</script>
+<script type="text/javascript">
+var systemd_client = cockpit.dbus("org.freedesktop.systemd1", { superuser: "try" });
+var systemd_manager = systemd_client.proxy("org.freedesktop.systemd1.Manager","/org/freedesktop/systemd1");
+wait_valid(systemd_manager,operation)
+// $("#service-select ul").append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#">Action</a></li>');
+
+</script>
