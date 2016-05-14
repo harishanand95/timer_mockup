@@ -6,62 +6,145 @@
     <script src="../base1/cockpit.js"></script>
     <script src="../base1/jquery.js"></script>
     <script src="../base1/mustache.js"></script>
+    <script src="../system/service.js"></script>
     <link rel="stylesheet" type="text/css" href="../base1/patternfly.css">
     <link rel="stylesheet" type="text/css" href="../base1/patternfly-additions.css">
 </head>
-<div class="dropdown" id="service-select">
-  <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown">
-    Dropdown
-    <span class="caret"></span>
-  </button>
-  <ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
-    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Action</a></li>
-    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Another action</a></li>
-    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Something else here</a></li>
-    <li role="presentation" class="divider"></li>
-    <li role="presentation" class="disabled"><a role="menuitem" tabindex="-1" href="#">Disabled link</a></li>
-    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Separated link</a></li>
-  </ul>
+<body>
+  <br>
+<div class="container-fluid">
+  <div id="target">
+    <div class="spinner"></div>
+  </div>
 </div>
-<div id="target">Loading...</div>
+
 <script id="services-units-tmpl" type="x-template/mustache">
-  <tr>
-<div class="panel panel-default">
-      <div class="panel-heading">Timers</div>
-      <table class="table table-hover">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"> {{heading}}</h3>
+      </div>
+      <table class="table table-hover panel-body">
+        <tr>
+          <td><b>Description</b></td>
+          <td><b>Id</b></td>
+          <td><b>Next run</b></td>
+          <td><b>State</b></td>
+        </tr>
+        {{ #units }}
         <tr data-goto-unit="{{Id}}">
           <td class="service-unit-description">{{Description}}</td>
           <td>{{Id}}</td>
-          <td class="service-unit-data {{#HasFailed}}service-unit-failed{{/HasFailed}}">
-            {{CombinedState}}
-          </td>
+          <td>{{realtime_elapse}}{{monotonic_elapse}}</td>
+          <td>{{ActiveState}} ({{SubState}})</td>
         </tr>
+        {{ /units }}
       </table>
-</div>
-</tr>  
+  </div>
 </script>
 
-
 <script type="text/javascript">
+ units_by_path = { };
+
+function get_unit(path) {
+    var unit = units_by_path[path];
+    if (!unit) {
+        unit = { aliases: [ ], path: path };
+        units_by_path[path] = unit;
+    }
+    return unit;
+}
+
+function record_unit_state(state) {
+  var unit = get_unit(state[6]);
+  unit.Id = state[0];
+  unit.Description = state[1];
+  unit.LoadState = state[2];
+  unit.ActiveState = state[3];
+  unit.SubState = state[4];
+  unit.path = state[6];
+  GetAll(unit);
+}
+
+
 function wait_valid(proxy, callback) {
   proxy.wait(function() {
   if (proxy.valid)
     callback(proxy);
   });
 };
-// var units_template = $("#services-units-tmpl").html();
-// mustache.parse(units_template);
 
-// function fill_table(parent, heading, units) {
-//   var text = mustache.render(units_template, {
-//     heading: heading,
-//     units: units
-//   });
-//   parent.html(text);
-// }
+var units_template = $("#services-units-tmpl").html();
+Mustache.parse(units_template);
 
-operation = function (systemd_manager){
+function fill_table(parent, heading, units) {
+  var text = Mustache.render(units_template, {
+    heading: heading,
+    units: units
+  });
+  parent.html(text);
+};
+/*
+http://stackoverflow.com/questions/175554/how-to-convert-milliseconds-into-human-readable-form
+*/
+var getDuration = function(millis) {
+    var dur = {};
+    var units = [
+        {label:"seconds",   mod:60},
+        {label:"minutes",   mod:60},
+        {label:"hours",     mod:24},
+        {label:"days",      mod:31}
+    ];
+    // calculate the individual unit values...
+    units.forEach(function(u){
+        millis = (millis - (dur[u.label] = (millis % u.mod))) / u.mod;
+    });
+    // convert object to a string representation...
+    dur.toString = function(){
+        return units.reverse().map(function(u){
+            return dur[u.label] + " " + (dur[u.label]==1?u.label.slice(0,-1):u.label);
+        }).join(', ');
+    };
+    return dur;
+};
 
+function GetAll(unit) {
+  if (unit) {
+    var systemd_client = cockpit.dbus("org.freedesktop.systemd1", { superuser: "try" });
+    var systemd_timer = systemd_client.proxy("org.freedesktop.systemd1.Timer", unit.path);
+    wait_valid(systemd_timer,display);
+  }
+};
+
+function display(systemd_timer){
+    // console.log(systemd_timer.valid);
+    if (systemd_timer.NextElapseUSecRealtime != 0){
+      console.log(systemd_timer.NextElapseUSecRealtime);
+      var date = new Date(systemd_timer.NextElapseUSecRealtime/1000);
+      units_by_path[systemd_timer.path].realtime_elapse = date.toString();
+      console.log(units_by_path[systemd_timer.path].realtime_elapse);
+    }
+    if (systemd_timer.NextElapseUSecMonotonic != 0){
+      console.log("MONO "+systemd_timer.NextElapseUSecMonotonic);
+      var date = getDuration(systemd_timer.NextElapseUSecMonotonic);
+      units_by_path[systemd_timer.path].monotonic_elapse = date.toString();
+      console.log(units_by_path[systemd_timer.path].monotonic_elapse);
+    }
+};
+
+operation = function (systemd_manager) {
+  var units = [ ];
+  function render () {
+    for(var key in units_by_path) {
+      $.when( GetAll(units_by_path[key]) ).then(
+        function(){
+          units.push(units_by_path[key]);})
+        // GetAll(units_by_path[key]);
+        // units.push(units_by_path[key]);
+        console.log("SD");
+    }
+    fill_table($('#target'), "Timers", units);  
+  }
+  
   function failure (error){
     console.log(error);
   };
@@ -69,23 +152,49 @@ operation = function (systemd_manager){
   function r (result){
     var substring = "timer";
     for (var i = result.length - 1; i >= 0; i--) {
-      if ( result[i][0].indexOf(substring) > -1 )
-      console.log(result[i][0]); 
+      if ( result[i][0].slice(-5) == substring )
+       console.log(result[i][0]); 
     };
 
   };
 
-  systemd_manager.ListUnitFiles().
-  fail(failure).
-  done(r);
+  function s (result) {
+    var dfd = $.Deferred();
+    if (true) {
+      var substring = "timer";
+      for (var i = 0; i < result.length; i++) {
+        if ( result[i][0].slice(-5) == substring ) {
+          // console.log(result[i][0]);
+          record_unit_state(result[i]);
+        }
+      }
+      dfd.resolve();
+    }  
+    return dfd.promise();
+  }
 
+  systemd_manager.ListUnits().
+  fail(failure).
+  done(
+    function(result){  
+      $.when(s(result)).then(
+          function(){
+            setTimeout(render, 500);
+          }
+    )});
+
+  // systemd_manager.ListUnitFiles().
+  // fail(failure).
+  // done(r);
+  // setTimeout(render, 500);
 };
 
 </script>
 <script type="text/javascript">
 var systemd_client = cockpit.dbus("org.freedesktop.systemd1", { superuser: "try" });
 var systemd_manager = systemd_client.proxy("org.freedesktop.systemd1.Manager","/org/freedesktop/systemd1");
-wait_valid(systemd_manager,operation)
-// $("#service-select ul").append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#">Action</a></li>');
+wait_valid(systemd_manager,operation);
+console.log(units_by_path);
 
 </script>
+</body>
