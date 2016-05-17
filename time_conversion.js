@@ -1,6 +1,7 @@
 /* A JS version of time conversion used in systemd
 * Available C version at systemd/src/basic/time-util.c
 * Input t = real time microsecond (1463509800000000)
+* Use Math.floor() or round() to round to integers.
 */
 function format_timestamp_relative(t) {
     var MSEC_PER_SEC = 1000;

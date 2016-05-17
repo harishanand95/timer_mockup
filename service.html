@@ -189,7 +189,7 @@ function format_timestamp_relative(t) {
     else if (d >= 5*USEC_PER_MINUTE)
             return String( Math.floor( d / USEC_PER_MINUTE ) +"min " + s);
     else if (d >= USEC_PER_MINUTE)
-            return String( Math.floor( d / USEC_PER_MINUTE ) +"min "+ Math.floor( (d % USEC_PER_MINUTE) / USEC_PER_SEC )+"s ");
+            return String( Math.floor( d / USEC_PER_MINUTE ) +"min "+ Math.floor( (d % USEC_PER_MINUTE) / USEC_PER_SEC )+"s "+ s);
     else if (d >= USEC_PER_SEC)
             return String( Math.floor( d / USEC_PER_SEC ) +"s " + s);
     else if (d >= USEC_PER_MSEC)

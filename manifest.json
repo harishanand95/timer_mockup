@@ -3,7 +3,7 @@
 
     "tools": {
         "timezone": {
-            "label": "Service-modify",
+            "label": "Timer Playground",
             "path": "service.html"
         }
     },
