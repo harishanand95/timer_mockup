@@ -22,7 +22,7 @@
     <div class="panel panel-default">
       <div class="panel-heading">
         <span class="pull-right">
-          <button id="create-timer"  data-toggle="modal" data-target="#myModal" class="btn btn-primary fa fa-plus"></button>
+          <button id="create-timer" data-toggle="modal" data-target="#myModal" class="btn btn-primary fa fa-plus"></button>
         </span>
         <span translatable="yes"><b>{{heading}}</b></span>
       </div>
@@ -31,13 +31,15 @@
           <td><h4><b>Description</b></h4></td>
           <td><h4><b>Id</b></h4></td>
           <td><h4><b>Next run</b></h4></td>
+          <td><h4><b>Last run</b></h4></td>
           <td><h4><b>State</b></h4></td>
         </tr>
         {{ #units }}
         <tr data-goto-unit="{{Id}}">
           <td class="service-unit-description">{{Description}}</td>
           <td>{{Id}}</td>
-          <td>{{realtime_elapse}}{{monotonic_elapse}}</td>
+          <td>{{next_run}}</td>
+          <td>{{last_run}}</td>
           <td>{{ActiveState}} ({{SubState}})</td>
         </tr>
         {{ /units }}
@@ -128,7 +130,6 @@ $("#control-3").on("click", "[value]", function(ev) {
     $("span", ev.delegateTarget).first().text(target.text());
     console.log("value: ", target.attr("value"));
 });
-
 var timerproperties = function(value){
   if (value == 1) {
     $("#boot").show();
@@ -136,9 +137,69 @@ var timerproperties = function(value){
   else if (value == 2) {
     $("#boot").hide();
   }
-
 }
 units_by_path = { };
+
+/* A JS version of time conversion used in systemd
+* Available C version at systemd/src/basic/time-util.c
+* Input t = real time microsecond (1463509800000000)
+*/
+function format_timestamp_relative(t) {
+    var MSEC_PER_SEC = 1000;
+    var USEC_PER_SEC = 1000000;
+    var USEC_PER_MSEC = 1000;
+    var USEC_INFINITY =-1;
+
+    var USEC_PER_MINUTE = 60*USEC_PER_SEC;
+    var USEC_PER_HOUR = 60*USEC_PER_MINUTE;
+    var USEC_PER_DAY = 24*USEC_PER_HOUR;
+    var USEC_PER_WEEK = 7*USEC_PER_DAY;
+    var USEC_PER_MONTH = 2629800*USEC_PER_SEC;
+    var USEC_PER_YEAR = 31557600*USEC_PER_SEC;
+
+  var s = "";
+    var n, d; 
+
+    if (t <= 0 || t == USEC_INFINITY)
+            return ;
+    //subtracting the milliseconds in order to get a whole number instead of a fraction
+    var date = new Date();
+    n = (date.getTime()-date.getMilliseconds()) * 1000;
+    if (n > t) {
+            d = n - t;
+            s = "ago";
+    } else {
+            d = t - n;
+            s = "left";
+    }
+    if (d >= USEC_PER_YEAR)
+        return String(Math.floor( d / USEC_PER_YEAR )+ " years " + Math.floor( (d % USEC_PER_YEAR) / USEC_PER_MONTH ) + " months " + s);
+    else if (d >= USEC_PER_MONTH)
+            return String(Math.floor( d / USEC_PER_MONTH )+ " months " + Math.floor( (d % USEC_PER_MONTH) / USEC_PER_DAY )+ " days " + s);
+    else if (d >= USEC_PER_WEEK)
+            return String(Math.floor( d / USEC_PER_WEEK ) + " weeks "+ Math.floor( (d % USEC_PER_WEEK) / USEC_PER_DAY ) +" days " + s);
+    else if (d >= 2*USEC_PER_DAY)
+            return String(Math.floor( d / USEC_PER_DAY ) +" days " +s);
+    else if (d >= 25*USEC_PER_HOUR)
+            return String("1 day "+ Math.floor( (d - USEC_PER_DAY) / USEC_PER_HOUR ) +"h " +s);
+    else if (d >= 6*USEC_PER_HOUR)
+            return String( Math.floor( d / USEC_PER_HOUR ) +"h " + s);
+    else if (d >= USEC_PER_HOUR)
+            return String( Math.floor( d / USEC_PER_HOUR ) +"h "+ Math.floor( (d % USEC_PER_HOUR) / USEC_PER_MINUTE ) +"min " + s);
+    else if (d >= 5*USEC_PER_MINUTE)
+            return String( Math.floor( d / USEC_PER_MINUTE ) +"min " + s);
+    else if (d >= USEC_PER_MINUTE)
+            return String( Math.floor( d / USEC_PER_MINUTE ) +"min "+ Math.floor( (d % USEC_PER_MINUTE) / USEC_PER_SEC )+"s ");
+    else if (d >= USEC_PER_SEC)
+            return String( Math.floor( d / USEC_PER_SEC ) +"s " + s);
+    else if (d >= USEC_PER_MSEC)
+            return String( Math.floor( d / USEC_PER_MSEC ) +"ms " + s);
+    else if (d > 0)
+            return String(Math.floor(d) +"us " + s);
+    else
+            return String("now");
+    return;
+}
 //init.js L155
 function get_unit(path) {
     var unit = units_by_path[path];
@@ -147,7 +208,7 @@ function get_unit(path) {
         units_by_path[path] = unit;
     }
     return unit;
-}
+};
 //init.js L287
 function record_unit_state(state) {
   var unit = get_unit(state[6]);
@@ -157,19 +218,17 @@ function record_unit_state(state) {
   unit.ActiveState = state[3];
   unit.SubState = state[4];
   unit.path = state[6];
-  GetAll(unit);
-}
+};
 //service.js L79
-function wait_valid(proxy, callback) {
+function wait_valid(proxy, callback, args) {
   proxy.wait(function() {
   if (proxy.valid)
-    callback(proxy);
+    callback(proxy, args);
   });
 };
 //init.js L243
 var units_template = $("#services-units-tmpl").html();
 Mustache.parse(units_template);
-
 function fill_table(parent, heading, units) {
   var text = Mustache.render(units_template, {
     heading: heading,
@@ -178,58 +237,39 @@ function fill_table(parent, heading, units) {
   parent.html(text);
 };
 
-// Get's connected to timer d-bus and get all its property values.
-function GetAll(unit) {
-  if (unit) {
-    var systemd_client = cockpit.dbus("org.freedesktop.systemd1", { superuser: "try" });
-    var systemd_timer = systemd_client.proxy("org.freedesktop.systemd1.Timer", unit.path);
-    wait_valid(systemd_timer,display);
-  }
-};
-
-function display(systemd_timer){
-    // console.log(systemd_timer.valid);
-    if (systemd_timer.NextElapseUSecRealtime != 0){
-      console.log(systemd_timer.NextElapseUSecRealtime);
-      var date = new Date(systemd_timer.NextElapseUSecRealtime/1000);
-      units_by_path[systemd_timer.path].realtime_elapse = date.toString();
-      console.log(units_by_path[systemd_timer.path].realtime_elapse);
-    }
-    if (systemd_timer.NextElapseUSecMonotonic != 0){
-      console.log("MONO "+systemd_timer.NextElapseUSecMonotonic);
-      var d = new Date();
-      var date = new Date(systemd_timer.NextElapseUSecMonotonic/1000 + (d.getTime()-d.getMilliseconds()));
-      units_by_path[systemd_timer.path].monotonic_elapse = date.toString();
-      console.log(units_by_path[systemd_timer.path].monotonic_elapse);
-    }
+function add_last_next_times(timer, manager) {
+  if (timer.NextElapseUSecMonotonic > 0)
+    var time_left_for_next_run = manager.GeneratorsStartTimestamp + timer.NextElapseUSecMonotonic;
+  else
+    var time_left_for_next_run = timer.NextElapseUSecRealtime;
+  unit = get_unit(timer.path);
+  unit.next_run = format_timestamp_relative(time_left_for_next_run);
+  unit.last_run = format_timestamp_relative(timer.LastTriggerUSec);
 };
 
 operation = function (systemd_manager) {
   var units = [ ];
+  
   function render () {
     for(var key in units_by_path) {
-      $.when( GetAll(units_by_path[key]) ).then(
-        function(){
-          units.push(units_by_path[key]);})
-        // GetAll(units_by_path[key]);
-        // units.push(units_by_path[key]);
-        console.log("SD");
+      console.log(key);
+      add_timings(key);
+      units.push(units_by_path[key])
     }
-    fill_table($('#target'), "Timers", units);  
-  }
-  
+    setTimeout(function(){
+      fill_table($('#target'), "Timers", units);
+    }, 500);  
+  };
+
+  function add_timings(key) {
+    var systemd_client = cockpit.dbus("org.freedesktop.systemd1", { superuser: "try" });
+    var systemd_timer = systemd_client.proxy("org.freedesktop.systemd1.Timer", key);
+    wait_valid(systemd_timer, add_last_next_times, systemd_manager);
+  };
+
   function failure (error){
     console.log(error);
   };
-
-  // function r (result){
-  //   var substring = "timer";
-  //   for (var i = result.length - 1; i >= 0; i--) {
-  //     if ( result[i][0].slice(-5) == substring )
-  //      console.log(result[i][0]); 
-  //   };
-
-  // };
 
   function s (result) {
     var dfd = $.Deferred();
@@ -237,14 +277,13 @@ operation = function (systemd_manager) {
       var substring = "timer";
       for (var i = 0; i < result.length; i++) {
         if ( result[i][0].slice(-5) == substring ) {
-          // console.log(result[i][0]);
           record_unit_state(result[i]);
         }
       }
       dfd.resolve();
     }  
     return dfd.promise();
-  }
+  };
 
   systemd_manager.ListUnits().
   fail(failure).
@@ -255,19 +294,10 @@ operation = function (systemd_manager) {
             setTimeout(render, 500);
           }
     )});
-
-  // systemd_manager.ListUnitFiles().
-  // fail(failure).
-  // done(r);
-  // setTimeout(render, 500);
 };
 
-</script>
-<script type="text/javascript">
 var systemd_client = cockpit.dbus("org.freedesktop.systemd1", { superuser: "try" });
 var systemd_manager = systemd_client.proxy("org.freedesktop.systemd1.Manager","/org/freedesktop/systemd1");
 wait_valid(systemd_manager,operation);
-console.log(units_by_path);
-
 </script>
 </body>
