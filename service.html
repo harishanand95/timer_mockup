@@ -74,7 +74,7 @@
           <div class="form-group">
             <label class="col-sm-3 control-label" for="textInput3-modal-markup">Run</label>
             <div class="col-sm-9">
-              <div class="btn-group bootstrap-select dropdown form-control" id="control-2">
+              <div class="btn-group bootstrap-select dropdown form-control" id="boot_specific">
                 <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">
                   <span class="pull-left" translatable="yes">After system boot</span>
                   <span class="caret"></span>
@@ -92,7 +92,7 @@
               <input type="text" id="textInput4-modal-markup" class="form-control">
             </div>
             <div class="col-sm-6">
-              <div class="btn-group bootstrap-select dropdown form-control" id="control-3">
+              <div class="btn-group bootstrap-select dropdown form-control" id="drop_time">
                 <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">
                   <span class="pull-left" translatable="yes">Seconds</span>
                   <span class="caret"></span>
@@ -108,7 +108,7 @@
           </div>
           <div class="form-group" id="repeat">
             <div class="col-sm-9 col-md-offset-3">
-              <div class="btn-group bootstrap-select dropdown form-control" id="control-4">
+              <div class="btn-group bootstrap-select dropdown form-control" id="drop_repeat">
                 <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">
                   <span class="pull-left" translatable="yes">Don't Repeat</span>
                   <span class="caret"></span>
@@ -124,7 +124,7 @@
               </div>
             </div>
           </div>
-          <div class="form-group" id="specific_time">
+          <div class="form-group" id="specific_time_for_repeat_hourly">
             <div class="col-sm-3"></div>
             <div class="col-sm-9" >
               <div class="col-sm-2">
@@ -142,11 +142,11 @@
               </div>
             </div>
           </div>
-          <div class="form-group" id="specific_time_day">
+          <div class="form-group" id="specific_time_for_repeat_daily">
             <div class="col-sm-3"></div>
             <div class="col-sm-9" >
               <div class="col-sm-4">
-                <div class="btn-group bootstrap-select dropdown form-control" id="control-5">
+                <div class="btn-group bootstrap-select dropdown form-control" id="drop_day">
                   <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">
                     <span class="pull-left" translatable="yes">Monday</span>
                     <span class="caret"></span>
@@ -188,45 +188,41 @@
 </div>
 
 <script type="text/javascript">
-$("#specific_time_day,#specific_time,#repeat").hide();
+$("#specific_time_for_repeat_daily,#specific_time_for_repeat_hourly,#repeat").hide();
+
 $("#save-button").on("click", function() {
   create_timer();
   console.log(timer_unit);
 });
-//patterns.js L75
-$("#control-2").on("click", "[value]", function(ev) {
+
+$(".btn-group.bootstrap-select.dropdown.form-control").on("click", "[value]", function(ev) {
     var target = $(this);
     $("span", ev.delegateTarget).first().text(target.text());
-    set_calendar_or_boot(target.attr("value"));
+    switch(ev.delegateTarget.id) {
+      case "boot_specific" : set_calendar_or_boot(Number(target.attr("value")));
+      break;
+      case "drop_time" : set_time_unit(Number(target.attr("value")));
+      break;
+      case "drop_repeat" : toggle_on_repeat(Number(target.attr("value")));
+      break;
+    }
 });
 
-$("#control-3").on("click", "[value]", function(ev) {
-    var target = $(this);
-    $("span", ev.delegateTarget).first().text(target.text());
-    console.log("value: ", target.attr("value"));
-    set_time_unit(target.attr("value"));
-});
+function toggle_on_repeat(val) {
+  switch(val) {
+    case 1 : $("#specific_time_for_repeat_hourly").show();
+      $("#specific_time_for_repeat_daily").hide();
+       break;
+    case 2 : $("#specific_time_for_repeat_daily").show();
+      $("#specific_time_for_repeat_hourly").hide();
+      break;
+  };
+}
 
-$("#control-4").on("click", "[value]", function(ev) {
-    var target = $(this);
-    $("span", ev.delegateTarget).first().text(target.text());
-    switch(Number(target.attr("value"))) {
-      case 1 : $("#specific_time").show();
-        break;
-      case 2 : $("#specific_time_day").show();
-        break;
-    };
-    
-});
-
-$("#control-5").on("click", "[value]", function(ev) {
-    var target = $(this);
-    $("span", ev.delegateTarget).first().text(target.text());
-});
 var set_calendar_or_boot = function(value) {
   if (value == 1) {
     $("#boot").show();
-    $("#specific_time_day,#specific_time,#repeat").hide();
+    $("#specific_time_for_repeat_daily,#specific_time_for_repeat_hourly,#repeat").hide();
     timer_unit.Calendar_or_boot = "Boot";
   }
   else if (value == 2) {
@@ -235,6 +231,7 @@ var set_calendar_or_boot = function(value) {
     timer_unit.Calendar_or_boot = "Calendar";
   }
 }
+
 var set_time_unit = function(value) {
   value = Number(value);
   switch (value) {
