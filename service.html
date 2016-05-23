@@ -47,11 +47,11 @@
   </div>
 </script>
 
-<div class="modal" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+<div class="modal" id="modal" tabindex="-1" role="dialog" aria-labelledby="Labelmodal" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title" id="myModalLabel">Create Timers</h4>
+        <h4 class="modal-title" id="Labelmodal">Create Timers</h4>
       </div>
       <div class="modal-body">
         <form class="form-horizontal">
@@ -107,7 +107,8 @@
             </div>
           </div>
           <div class="form-group" id="repeat">
-            <div class="col-sm-9 col-md-offset-3">
+            <div class="col-sm-3"></div>
+            <div class="col-sm-9 ">
               <div class="btn-group bootstrap-select dropdown form-control" id="drop_repeat">
                 <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">
                   <span class="pull-left" translatable="yes">Don't Repeat</span>
@@ -124,7 +125,7 @@
               </div>
             </div>
           </div>
-          <div class="form-group" id="specific_time_for_repeat_hourly">
+          <div class="form-group" id="specific_time_for_repeat_hourly" >
             <div class="col-sm-3"></div>
             <div class="col-sm-9" >
               <div class="col-sm-2">
@@ -135,10 +136,10 @@
                 <input type="text" id="textInput-modal-markup" placeholder="00" data-toggle="tooltip" data-placement="bottom" title="minutes" class="form-control">
               </div>
               <div class="col-sm-1">
-                <button class="btn btn-default dropdown-toggle fa fa-plus" type="button" data-toggle="dropdown" aria-expanded="false">
+                <button class="btn btn-default dropdown-toggle fa fa-plus" type="button"></button>
               </div>
               <div class="col-sm-1">
-                <button class="btn btn-default dropdown-toggle  pficon-close" type="button" data-toggle="dropdown" aria-expanded="false"disabled>
+                <button class="btn btn-default dropdown-toggle  pficon-close" type="button" disabled></button>
               </div>
             </div>
           </div>
@@ -170,10 +171,10 @@
                 <input type="text" id="textInput-modal-markup" placeholder="00" data-toggle="tooltip" data-placement="bottom" title="minutes" class="form-control">
               </div>
               <div class="col-sm-1">
-                  <button class="btn btn-default dropdown-toggle fa fa-plus" type="button" data-toggle="dropdown" aria-expanded="false"></button>
+                  <button class="btn btn-default dropdown-toggle fa fa-plus" type="button"></button>
               </div>
               <div class="col-sm-1">
-                <button class="btn btn-default dropdown-toggle  pficon-close" type="button" data-toggle="dropdown" aria-expanded="false" disabled></button>
+                <button class="btn btn-default dropdown-toggle  pficon-close" type="button" disabled></button>
               </div>
             </div>
           </div>
@@ -190,9 +191,13 @@
 <script type="text/javascript">
 $("#specific_time_for_repeat_daily,#specific_time_for_repeat_hourly,#repeat").hide();
 
+$(".btn.btn-default.dropdown-toggle.fa.fa-plus").on("click", function() {
+  var $self = $(this).parents().eq(2);
+  $self.after($self.clone());
+});
+
 $("#save-button").on("click", function() {
   create_timer();
-  console.log(timer_unit);
 });
 
 $(".btn-group.bootstrap-select.dropdown.form-control").on("click", "[value]", function(ev) {
@@ -210,9 +215,12 @@ $(".btn-group.bootstrap-select.dropdown.form-control").on("click", "[value]", fu
 
 function toggle_on_repeat(val) {
   switch(val) {
+    case 0 : $("#specific_time_for_repeat_daily").hide();
+      $("#specific_time_for_repeat_hourly").hide();
+      break;
     case 1 : $("#specific_time_for_repeat_hourly").show();
       $("#specific_time_for_repeat_daily").hide();
-       break;
+      break;
     case 2 : $("#specific_time_for_repeat_daily").show();
       $("#specific_time_for_repeat_hourly").hide();
       break;
@@ -281,13 +289,22 @@ function create_timer() {
     timer_unit.Command = null;
 
   str = $("#textInput4-modal-markup").val();
-  if ( !isNaN(str)) {
+  if ( isNaN(str) ) { //no input case not checked
+    var content = "\"At\" needs an integer value";
+    display_error($(".modal-body"),content);
+  }
+  else {
     timer_unit.boot_time = str;
     str = null;
   }
-   //else to alert
 }
 
+function display_error(location,content) {
+  $( "<div></div>" )
+  .addClass( "alert alert-danger" )
+  .html("<span class='pficon pficon-error-circle-o'></span>"+content)
+  .prependTo( location );
+}
 
 units_by_path = { };
 
