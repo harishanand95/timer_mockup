@@ -394,7 +394,7 @@ function create_timer() {
     array.push($("span", $(this)).first().text().slice(0,3));
   });
   timer_unit.repeat_days = array.toString();
-  timer_unit.OnCalendar = "*-*-* "+timer_unit.repeat_hour+":"+timer_unit.repeat_minute+":00";
+  timer_unit.OnCalendar = timer_unit.repeat_days + "*-*-* "+timer_unit.repeat_hour+":"+timer_unit.repeat_minute+":00";
   }
   console.log(timer_unit);
   create_timer_file();
